@@ -1,0 +1,198 @@
+
+
+
+library(shiny)
+library(dplyr)
+#install.packages("shinythemes")
+library(shinythemes)
+library(cluster)
+#install.packages("arules")
+library(arules)
+#install.packages("factoextra")
+library(factoextra)
+
+heart <- readr::read_csv(url("https://archive.ics.uci.edu/ml/machine-learning-databases/00519/heart_failure_clinical_records_dataset.csv"), col_names = TRUE)
+heart.limited <- select(heart, -c(anaemia, diabetes, high_blood_pressure,sex,smoking,DEATH_EVENT))
+heart.scale <- as.data.frame(scale(heart.limited))
+
+
+ui <- fluidPage(theme = shinytheme("sandstone"),
+        navbarPage("Health Warning Signs",
+                   tabPanel("Project Details",
+                            titlePanel("Project Details"),
+                            sidebarPanel("Clinical data were collected on heart failure patients.  Click through the tabs on this page to learn about the data, learn about the selected machine learning tool, and read conclusions from the data science project.  Click on the pages in the navigation bar above to see a searchable table of the full dataset, the relationship between variables of patient data, and how the machine learning operates."
+                            ),
+                            mainPanel(
+                                tabsetPanel(
+                                    tabPanel("Data",
+                                             h2("Introduction to the dataset"),
+                                             h4("The data were downloaded from UCI Machine Learning Respository.  The dataset contains the medical records of patients who had heart failure, where 13 clinical features were collected after the failure event and before their check-up appointment.  The data were collected to predict survival of patients with heart failure based on other clinical features.  BMC Medical Informatics identified that sodium creatinine and ejection fraction can be used as indicators of survival chance after a heart failure event."),
+                                             h4("The dataset includes data from 299 patients, encompassing:"),
+                                             h5("- Age: Age of the patient in years"),
+                                             h5("- Anaemia: Decrease of red blood cells or hemoglobin"),
+                                             h5("- High Blood Pressure: If the patient has hypertension (yes/no)"),
+                                             h5("- Creatinine Phosphokinase (CPK): Level of the CPK enzyme in the blood in mcg/L"),
+                                             h5("- Diabetes: If the patient has diabetes (yes/no)"),
+                                             h5("- Ejection Fraction: Percentage of blood leaving the heart at each contraction"),
+                                             h5("- Platelets: Platelets in the blood in kiloplatelets/mL"),
+                                             h5("- Sex: Woman or man (binary)"),
+                                             h5("- Serum Creatinine: Level of serum creatinine in the blood in mg/dL"),
+                                             h5("- Serum Sodium: Level of serum sodium in the blood in mEq/L"),
+                                             h5("- Smoking: If the patient smokes (yes/no)"),
+                                             h5("- Time: Follow-up period in days between failure and check-up appointment"),
+                                             h5("- Death Event: If the patient deceased during the follow-up period"),
+                                             h4("To expand upon the conclusions of BMC Medical Informatics, the goal of this analysis is to identify other patient features that correspond with serum creatinine and ejection fraction.  By identifying patterns between these variables with other patient features, and by identifying the general links between patient features, warning signs and risk classifications can be used to help patients."),
+                                             h4("It is beneficial to take an inital look at the relationship between the variables.  The following correlation matrix can be used to identify any linear relationships between data."),
+                                             plotOutput('plot2'),
+                                             h4("There do not appear to be any variables with a strong linear relationship."),
+                                             h4("The data are further explored in the following tabs on this page.  Additional pages on the navigation bar provide visualizations of the data."),
+                                             h4("Data courtesy of UCI ML Respository.  Davide Chicco and Giuseppe Jurman, 'Machine learning can predit survival of patients with heart failure from serum creatinine and ejection fraction alone.' BMC Medical Informatics and Decision Making 20, 16 (2020)"),
+                                    ),
+                                    tabPanel("K-Means",
+                                             h2("Explanation of K-Means"),
+                                             h4("K-means is an unsupervised machine learning used for knowledge discovery.  K-means clustering is a tool to identify similarities within a data set.  It groups similar data points together to discover underlying patterns.  The groups of data points that are aggregated together are referred to as clusters.  Clusters contain data that are more similar to each other than they are to the data in the other groups."),
+                                             h4("K-means clustering works by defining a target number, k, which is the number of centroids to assign to the dataset.  The centroid represents the center of the cluster (hence the 'means' in 'k-means').  Each data point is allocated to each of the clusters by trying to keep the centroids as small as possible.  This is achieved by reducing the in-cluster sum of squares.  The goal is to reduce the space in between points within a cluster, while also maximizing space between clusters."),
+                                             h4("The process of the K-means is:"),
+                                             h4("1. Randomly select centroids for the beginning points of each cluster"),
+                                             h4("2. Perform iterative calculations to optimize positions of the centroids"),
+                                             h4("3. Stop creating and optimizing clusters when either (a) the centroids have been stabilized or (b) the defined number of iterations has been completed"),
+                                             h4("To begin the k-means process, you therefore must identify a starting k value.  Each data set will have its optimal number of clusters, which can be determined by comparing the total within-group sums of squares against the number of clusters in a k-means solution.  This is demonstrated on the graph below:"),
+                                             plotOutput('plot4'),
+                                             h4("There is a large decrease in the sum of squared error by assigning at least 5 clusters.  The sum of square error seems to decrease most of the way after adding 7 or 8 clusters.  For this dataset, it is valuable to look at many clusters within the data in order to identify correlations.  This method of selecting the value of k is also referred to as the 'Elbow Method'"),
+                                             h4("The dataset includs a few binary groups of data.  These types of data are not ideal for k-means clustering; therefore, they were removed from the dataset for the k-means analysis."),
+                                             h4("Another caveat of the k-means process is that if variables in the analysis vary in range, k-means will weigh the group with the largest range the heaviest.  To prevent this, the data can be scaled to standardize each variable to a mean of zero and standard deviation of one.  There are two tabs to visualize the data included in this program: one of scaled data and one of unscaled data.  Both are included to demonstrate the difference between the scaled and unscaled data; however, it is recommended that conclusions be drawn from the scaled dataset."),
+                                             h4("To explore the relationship between variables, select the variables of interest in either dataset tab in the navigation bar.  Then, adjust the k value to identify clusters."),
+                                             h4("Tips for troubleshooting with k-means:"),
+                                             h4("1. Clusters with too few data points - decrease k value"),
+                                             h4("2. Splits on variables not observed - increase k value"),
+                                             h4("3. Centroids ('Xs') seem too close - decrease k value"),
+                                                                                          ),
+                                    tabPanel("Data Science Method and Conclusions",
+                                             h2("Steps of the Data Analysis"),
+                                             h4("Taking an organized approach to the analysis of the dataset allows for a more focused approach and clearer conclusions.  The steps of this data science project are described in detail below."),
+                                             h3("Discovery"),
+                                             h4("The first step to data science is the Discovery phase.  This is the phase where you first learn about the data, frame the problem, and form initial hypotheses."),
+                                             h4("The purpose of this evaluation is to determine if there are identifiable trends within patient data between certain clinical information and two attributes identified to indicate fatality after a heart failure.  The publishers of the data identified that serum creatinine and ejection fraction can be used to predict fatalities.  If these characteristics are not analyzed on a patient, they may still be identified if there are correlations to other patient characteristics.  For example, a patient may have bloodwork done for a platelet count but may not have information available on serum creatinine or ejection fraction.  If there is a strong correlation that patients with higher platelete counts also have higher ejection fractions, and since higher ejection fractions are more likely to lead to fatality after heart failures, this can be flagged by the healthcare professional as a warning sign or high risk factor. The potential customers of this project are within the healthcare industry.  If patterns in patient characteristics can be identified that may lead to a higher risk of fatality, there is an opportunity to spot these patterns in patients and prevent deaths.  This is humanitarily beneficial in an ethical sense, but also has business incentives.  Hospitals and medical professionals will be interested in the ability to identify these patterns and risk levels to more successfully run their practice.  This dataset includes data from a large number of patients (299), so trends are not likely to be coincidental."),
+                                             h3("Data Prep"),
+                                             h4("The next step is to prepare the data.  It is important to familiarize yourself with the data to understand what you are looking for in the results of your data science project.  Some data conditioning may be required so the data fit your model."),
+                                             h4("One reason this dataset was selected was due to its completeness.  Other datasets showed missing information within tuples.  This dataset was complete for every patient.  Initial analysis of the data was performed (see correlation matrix under the 'Data' tab).  This initial evaluation showed the variables within the dataset did not seem to show strong correlations between eachother.  It can be concluded at this point it is unlikely that the clusters will be easy to spot during the k-means analysis; however, that does not necessarily mean no conclusions can be made from the evaluation.  This dataset also included some information as binary inputs.  These inputs would plot over one another on the graph, therefore making it difficult to interpret through k-means.  These data were removed from this dataset for this exercise."),
+                                             h3("Model Planning"),
+                                             h4("After the data have been prepared, the model can be planned.  This includes determining model methods and techniques."),
+                                             h4("The goal of this analysis was to identify patterns between variables within the dataset; the approach for this was through clustering.  K-means is a good method for dividing the data into useful clusters and was selected as the mathematical analysis tool.  Since k-means does not handle categorical variables, these binary inputs were removed from the dataset during the data preparation phase."),
+                                             h3("Model Building"),
+                                             h4("The model can now be built after being planned.  The k-means model was developed in R Studio and included packages including 'cluster', 'arules', and 'factoextra'.  Interactive charts were supported through the R Studio Shiny Gallery.  The elbow method was used to identify the optimal range for the k value."),
+                                             h3("Communicate Results"),
+                                             h4("After building and implementing the model, the results need to be interpreted and communicated."),
+                                             h4("The relationships as observed through the cluster analysis are summarized below:"),
+                                             h4(" - Higher levels of serum creatinine are observed with levels of CPK less than 2,000 mcg/L (low confidence, 3 clusters, high error in sum of squares)"),
+                                             h4(" - Lower levels of serum creatinine are observed in platlete counts greater than 4E+05 kiloplatelets/mL (low confidence, 4 clusters, high error in sum of squares)"),
+                                             h4(" - No identifiable trends between serum creatinine and age, serum sodium, or time before check-up"),
+                                             h4(" - Higher ejection fractions are observed in CPK levels less than 2,000 mcg/L (low confidence, 3 clusters, high error in sum of squares)"),
+                                             h4(" - No identifiable trends between ejection fraction and age, platelets, serum sodium, or time before check-up"),
+                                             h4(" - Most patients with a higher ejection fraction also have a serum creatinine level less than 2,000 mEq/L (low confidence, 2 clusters, high error in sum of squares)"),
+                                             h4("Based on these observations, lower levels of CPK may be associated with higher levels of both serum creatinine and ejection fraction.  A high platelete count may also be an indicator of high serum creatinine, but is not associated with a high ejection fraction.  Age, serum sodium, and time between heart failure and check-up appointments do not have noticeable relationships to serum creatinine nor ejection fraction."),
+                                             h4("The business value in these observations is to advise healthcare professionals to flag CPK levels below 2,000 mcg/L in heart failure patients.  It may also be advisable to flag platelete levels above 4E+05 kiloplatelets/mL.  It is recommended to further justify these conclusions as there are high errors associated with them."),
+                                             h4("More analysis is required to understand the average level of CPK in patients and if 2,000 mcg/L is a reasonable value to flag (e.g. if all patients have CPK levels less than 2,000 mcg/L, all patients would be flagged and the data would no longer be helpful)."),
+                                             h3("Operationalize"),
+                                             h4("The last step of the data science project cycle is to run a pilot to assess the benefits of the data collected."),
+                                             h4("The next step would be to take these data and run a pilot study with heart failure patients.  Clinical data should be collected to develop upon the understanding between the level of the CPK enzyme and ejection fraction/serum creatinine levels.  A secondary goal of the pilot study would be to see if there was a strong relationship between levels of platelets and serum creatinine.  If these data are confirmed to have strong correlations, the next step of the pilot would depend on the difficulty of each medical test.  If the test for CPK enzymes is easier and less expensive for analysis than serum creatinine levels, it would make sense for healthcare professionals to test CPK as an inital screening in heart failure patients.  If CPK levels come back as greater than 2,000 mcg/L, an additional test for serum creatinine may not be necessary.  If the test comes back at less than 2,000 mcg/L, more follow-up with the patient may be recommended."),
+                                             
+                                             )
+                                )
+                            )
+                   ),
+                   
+                   tabPanel("Data Table",
+                            DT::dataTableOutput('table')),
+                   
+                tabPanel("Scaled Data Visualization",
+                 titlePanel("Interactive K Means Graph"),
+                 sidebarPanel(
+                     selectInput('xcol', 'X Variable', names(heart.scale)),
+                     selectInput('ycol', 'Y Variable', names(heart.scale),
+                                 selected=names(heart.scale)[[2]]),
+                     numericInput('clusters', 'Cluster count', 3,
+                                  min = 1, max = 9)
+                 ),
+                     mainPanel(
+                         plotOutput('plot1')
+        
+    ),
+                ),
+    
+    tabPanel("Unscaled Data Visualization",
+             titlePanel("Interactive K Means Graph"),
+             sidebarPanel(
+                 selectInput('xcol', 'X Variable', names(heart.limited)),
+                 selectInput('ycol', 'Y Variable', names(heart.limited),
+                             selected=names(heart.limited)[[2]]),
+                 numericInput('clusters2', 'Cluster count', 3,
+                              min = 1, max = 9)
+             ),
+             mainPanel(
+                 plotOutput('plot3')
+             )
+             )
+),
+)
+
+
+server <- function(input, output, session) {
+    
+    
+    # Combine the selected variables into a new data frame
+    selectedData <- reactive({
+        heart.scale[, c(input$xcol, input$ycol)]
+    })
+    
+    clusters <- reactive({
+        kmeans(selectedData(), input$clusters)
+    })
+    
+    output$plot1 <- renderPlot({
+        palette(c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
+                  "#FF7F00", "#FFFF33", "#A65628", "#F781BF", "#999999"))
+        
+        par(mar = c(5.1, 4.1, 0, 1))
+        plot(selectedData(),
+             col = clusters()$cluster,
+             pch = 20, cex = 3)
+        points(clusters()$centers, pch = 4, cex = 4, lwd = 4)
+    })
+    
+    
+    output$plot2 <- renderPlot({
+        corrplot(cor(heart), type = 'upper', method = 'number', tl.cex = 0.9)
+    })
+    
+    output$plot4 <- renderPlot({
+        fviz_nbclust(x = heart.limited,FUNcluster = kmeans, method = 'wss' )
+        })
+
+    selectedData2 <- reactive({
+        heart.limited[, c(input$xcol, input$ycol)]
+    })
+    
+    clusters2 <- reactive({
+        kmeans(selectedData2(), input$clusters2)
+    })
+    
+    output$plot3 <- renderPlot({
+        palette(c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
+                  "#FF7F00", "#FFFF33", "#A65628", "#F781BF", "#999999"))
+        
+        par(mar = c(5.1, 4.1, 0, 1))
+        plot(selectedData2(),
+             col = clusters2()$cluster,
+             pch = 20, cex = 3)
+        points(clusters2()$centers, pch = 4, cex = 4, lwd = 4)
+    })
+    
+    output$table <- DT::renderDataTable(
+        DT::datatable(heart, options = list(pageLength = 25))
+    )
+    
+    
+}
+
+shinyApp(ui = ui, server = server)
