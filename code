@@ -8,6 +8,7 @@ library(shinythemes)
 library(cluster)
 #install.packages("arules")
 library(arules)
+library(corrplot)
 #install.packages("factoextra")
 library(factoextra)
 
